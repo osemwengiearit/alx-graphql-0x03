@@ -1,48 +1,47 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React from 'react';
+import * as Sentry from '@sentry/react';
 
-interface ErrorBoundaryProps {
-  children: ReactNode;
-}
-
-interface ErrorBoundaryState {
-  hasError: boolean;
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
+class ErrorBoundary extends React.Component {
+  constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(error) {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught by ErrorBoundary:', error, errorInfo);
-  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    Sentry.captureException(error, { extra: errorInfo });
+    console.error('Uncaught error:', error, errorInfo);
 
-  handleRetry = () => {
-    this.setState({ hasError: false });
-  };
+    this.setState({
+      error: error,
+      errorInfo: errorInfo,
+    });
+  }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 text-center">
-          <h1 className="text-2xl font-bold text-red-600 mb-4">
-            Something went wrong.
-          </h1>
-          <button
-            onClick={this.handleRetry}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-          >
-            Try Again
-          </button>
+        <div className="flex flex-col items-center justify-center p-8 bg-red-100 border border-red-400 text-red-700 rounded-xl max-w-lg mx-auto mt-10">
+          <div className="font-bold text-xl mb-4">Something went wrong.</div>
+          <p className="text-sm text-center">
+            We've encountered an error. The details have been logged for review.
+          </p>
+          <details className="mt-4 p-4 bg-red-200 border border-red-300 rounded-lg w-full overflow-auto text-xs">
+            <summary className="font-semibold cursor-pointer text-red-800">
+              Error Details
+            </summary>
+            <pre className="mt-2 whitespace-pre-wrap break-words">
+              {this.state.error && this.state.error.toString()}
+              <br />
+              {this.state.errorInfo && this.state.errorInfo.componentStack}
+            </pre>
+          </details>
         </div>
       );
     }
-
     return this.props.children;
   }
 }
